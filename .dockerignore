@@ -4,37 +4,42 @@
 # Ignore everything first
 *
 
-# === n8n main image (docker/images/n8n/Dockerfile) ===
-!compiled
-!compiled/**
-!THIRD_PARTY_LICENSES.md
-
-# === runners image (docker/images/runners/Dockerfile + Dockerfile.distroless) ===
-!dist
-!dist/task-runner-javascript
-!dist/task-runner-javascript/**
-!packages
-!packages/@n8n
-!packages/@n8n/task-runner-python
-!packages/@n8n/task-runner-python/**
-
-# === Docker build files (entrypoints, configs) ===
-!docker
-!docker/images
-!docker/images/n8n
-!docker/images/n8n/docker-entrypoint.sh
-!docker/images/runners
-!docker/images/runners/n8n-task-runners.json
-
-# === benchmark image (packages/@n8n/benchmark/Dockerfile) ===
+# Allow build-related files
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
-!patches
-!patches/**
-!scripts
+!turbo.json
+!tsconfig.json
+!.prettierrc.js
+!biome.jsonc
+
+# Allow source packages
+!packages/
+!packages/**/package.json
+!packages/**/dist/
+!packages/**/*.ts
+!packages/**/*.js
+!packages/**/*.json
+!packages/**/*.svg
+!packages/**/*.vue
+!packages/**/*.css
+
+# Allow build scripts and patches
+!scripts/
 !scripts/**
-!packages/@n8n/benchmark
-!packages/@n8n/benchmark/**
-!packages/@n8n/typescript-config
-!packages/@n8n/typescript-config/**
+!patches/
+!patches/**
+
+# Allow Docker build files (entrypoints, configs)
+!docker/
+!docker/images/n8n/docker-entrypoint.sh
+
+# Specifically allow the compiled directory (if it exists)
+!compiled/
+!compiled/**
+
+# Ignore node_modules
+**/node_modules/
+**/dist/
+node_modules/
+dist/
