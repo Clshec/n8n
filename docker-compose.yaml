@@ -16,9 +16,9 @@
 
 services:
   # ---------------------------------------------------------------------------
-  # PostgreSQL Database
+  # PostgreSQL Database (Renamed to n8n_db to avoid DNS conflicts with coolify-db)
   # ---------------------------------------------------------------------------
-  postgres:
+  n8n_db:
     image: postgres:16-alpine
     restart: always
     environment:
@@ -26,7 +26,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-n8n}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - n8n_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-n8n} -d $${POSTGRES_DB:-n8n}"]
       interval: 10s
@@ -41,12 +41,12 @@ services:
     image: n8nio/n8n:1.91.3
     restart: always
     depends_on:
-      postgres:
+      n8n_db:
         condition: service_healthy
     environment:
       # --- Database ---
       DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_HOST: n8n_db
       DB_POSTGRESDB_PORT: 5432
       DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n}
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -104,7 +104,7 @@ services:
 # Volumes (Persistent Storage)
 # =============================================================================
 volumes:
-  postgres_data:
+  n8n_db_data:
   n8n_data:
 
 # =============================================================================
