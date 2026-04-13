@@ -82,6 +82,27 @@ services:
       - "127.0.0.1:5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
+    networks:
+      - default
+      - coolify
+    labels:
+      # -----------------------------------------------------------------------
+      # Explicit Traefik routing labels (override Coolify's auto-generated ones)
+      # This fixes the empty Host() bug in Coolify beta
+      # -----------------------------------------------------------------------
+      - "traefik.enable=true"
+      - "traefik.docker.network=coolify"
+      # HTTP → HTTPS redirect
+      - "traefik.http.routers.n8n-http.rule=Host(`${N8N_HOST}`)"
+      - "traefik.http.routers.n8n-http.entrypoints=http"
+      - "traefik.http.routers.n8n-http.middlewares=redirect-to-https"
+      # HTTPS router
+      - "traefik.http.routers.n8n-https.rule=Host(`${N8N_HOST}`)"
+      - "traefik.http.routers.n8n-https.entrypoints=https"
+      - "traefik.http.routers.n8n-https.tls=true"
+      - "traefik.http.routers.n8n-https.tls.certresolver=letsencrypt"
+      # Backend port
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
 
 # =============================================================================
 # Volumes (Persistent Storage)
@@ -89,3 +110,11 @@ services:
 volumes:
   postgres_data:
   n8n_data:
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  default: {}
+  coolify:
+    external: true
