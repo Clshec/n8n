@@ -27,10 +27,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-n8n}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - n8n_network
     healthcheck:
-      # Using $$ to escape variable substitution by Docker Compose
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-n8n} -d $${POSTGRES_DB:-n8n}"]
       interval: 10s
       timeout: 5s
@@ -68,7 +65,7 @@ services:
       GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Riyadh}
       TZ: ${GENERIC_TIMEZONE:-Asia/Riyadh}
 
-      # --- Database Maintenance (prevents disk bloat) ---
+      # --- Database Maintenance ---
       EXECUTIONS_DATA_PRUNE: "true"
       EXECUTIONS_DATA_MAX_AGE: 336
       EXECUTIONS_DATA_SAVE_ON_ERROR: all
@@ -81,14 +78,6 @@ services:
       - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
-    networks:
-      - n8n_network
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
 
 # =============================================================================
 # Volumes (Persistent Storage)
@@ -96,10 +85,3 @@ services:
 volumes:
   postgres_data:
   n8n_data:
-
-# =============================================================================
-# Network
-# =============================================================================
-networks:
-  n8n_network:
-    driver: bridge
