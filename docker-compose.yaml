@@ -78,8 +78,8 @@ services:
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
       N8N_RUNNERS_ENABLED: "true"
 
-    ports:
-      - "5678:5678"
+    expose:
+      - "5678"
     volumes:
       - n8n_data:/home/node/.n8n
 
