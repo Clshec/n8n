@@ -1,5 +1,5 @@
 # =============================================================================
-# n8n + PostgreSQL - Coolify Deployment
+# n8n + PostgreSQL - Coolify Deployment (Hardened)
 # =============================================================================
 # REQUIRED Variables (must be set in Coolify > Environment Variables):
 #
@@ -16,23 +16,68 @@
 
 services:
   # ---------------------------------------------------------------------------
-  # PostgreSQL Database (Renamed to n8n_db to avoid DNS conflicts with coolify-db)
+  # PostgreSQL Database
   # ---------------------------------------------------------------------------
   n8n_db:
     image: postgres:16-alpine
     restart: always
+    command: >
+      postgres
+      -c password_encryption=scram-sha-256
+      -c log_statement=ddl
+      -c log_min_duration_statement=1000
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-n8n}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-n8n}
     volumes:
       - n8n_db_data:/var/lib/postgresql/data
+    # ============================================
+    # Container isolation hardening
+    # ============================================
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+      - KILL
+      - NET_BIND_SERVICE
+    # ============================================
+    # Resource limits
+    # ============================================
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    # ============================================
+    # DNS security
+    # ============================================
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    # ============================================
+    # Log rotation
+    # ============================================
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 60s
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-n8n} -d $${POSTGRES_DB:-n8n}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 40s
+    networks:
+      - default
 
   # ---------------------------------------------------------------------------
   # n8n - Workflow Automation
@@ -80,25 +125,83 @@ services:
 
     expose:
       - "5678"
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=256M
     volumes:
       - n8n_data:/home/node/.n8n
+    # ============================================
+    # Container isolation hardening
+    # ============================================
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    # ============================================
+    # Resource limits
+    # ============================================
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.5'
+        reservations:
+          memory: 512M
+    # ============================================
+    # DNS security
+    # ============================================
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    # ============================================
+    # Log rotation
+    # ============================================
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 30s
     networks:
       - default
       - coolify
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=coolify"
-      # HTTP -> HTTPS redirect
+      # HTTP → HTTPS permanent redirect
       - "traefik.http.routers.n8n-http.rule=Host(`n8n.gumacu.com`)"
       - "traefik.http.routers.n8n-http.entrypoints=http"
-      - "traefik.http.routers.n8n-http.middlewares=redirect-to-https"
-      # HTTPS router
+      - "traefik.http.routers.n8n-http.middlewares=rate-limit-n8n,redirect-to-https-n8n"
+      # HTTPS with TLS
       - "traefik.http.routers.n8n-https.rule=Host(`n8n.gumacu.com`)"
       - "traefik.http.routers.n8n-https.entrypoints=https"
       - "traefik.http.routers.n8n-https.tls=true"
       - "traefik.http.routers.n8n-https.tls.certresolver=letsencrypt"
-      # Backend port
+      - "traefik.http.routers.n8n-https.middlewares=rate-limit-n8n,hsts-header-n8n,security-headers-n8n"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+      # HSTS: force HTTPS for 1 year
+      - "traefik.http.middlewares.hsts-header-n8n.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.hsts-header-n8n.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.hsts-header-n8n.headers.stsPreload=true"
+      - "traefik.http.middlewares.hsts-header-n8n.headers.forceSTSHeader=true"
+      # Redirect middleware
+      - "traefik.http.middlewares.redirect-to-https-n8n.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https-n8n.redirectscheme.permanent=true"
+      # Rate limiting: 30 req/s average, 60 burst per client IP
+      - "traefik.http.middlewares.rate-limit-n8n.ratelimit.average=30"
+      - "traefik.http.middlewares.rate-limit-n8n.ratelimit.period=1s"
+      - "traefik.http.middlewares.rate-limit-n8n.ratelimit.burst=60"
+      # Security headers
+      - "traefik.http.middlewares.security-headers-n8n.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.security-headers-n8n.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.security-headers-n8n.headers.frameDeny=true"
+      - "traefik.http.middlewares.security-headers-n8n.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.security-headers-n8n.headers.customFrameOptionsValue=SAMEORIGIN"
 
 # =============================================================================
 # Volumes (Persistent Storage)
